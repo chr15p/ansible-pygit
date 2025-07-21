@@ -1,0 +1,60 @@
+- name: Test git_checkout
+  hosts: test
+  vars:
+    repo_one: /opt/repo_one
+
+  pre_tasks:
+    - name: setup dirs
+      include_tasks: tasks/empty_directory.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: init repo_one
+      include_tasks: tasks/test_init_repo.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: setup a file in master and commit it
+      include_tasks: tasks/test_add_commit_file.yaml
+      loop:
+        - {repo: "{{ repo_one }}", filename: foo }
+
+  tasks:
+    - name: change line in foo
+      ansible.builtin.lineinfile:
+        path: "{{ repo_one }}/foo"
+        line: "I am a different line"
+      register: result
+      failed_when: not result.changed
+
+    - name: change line in foo again
+      ansible.builtin.lineinfile:
+        path: "{{ repo_one }}/foo"
+        line: "I am a different line"
+      register: result
+      failed_when: result.changed
+
+    - name: checkout previously commited file
+      git_checkout:
+        repo: "{{ repo_one }}"
+        branch: master
+        force: true
+        files:
+          - foo 
+      register: result
+      failed_when: not result.changed
+ 
+    - name: check if previous line back in foo
+      ansible.builtin.lineinfile:
+        path: "{{ repo_one }}/foo"
+        line: "bar"
+      register: result
+      failed_when: result.changed
+  
+    - name: check if previous line back in foo
+      ansible.builtin.lineinfile:
+        path: "{{ repo_one }}/foo"
+        line: "I am a different line"
+      register: result
+      failed_when: not result.changed
+  

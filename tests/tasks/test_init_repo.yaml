@@ -1,0 +1,17 @@
+
+- name: init {{ item.repo }}
+  git_init:
+    repo: "{{ item.repo }}"
+
+- name: check "{{ item.repo }}" exists
+  stat:
+    path: "{{ item.repo }}"
+  register: result
+  failed_when: result.failed
+  
+- name: check "{{ item.repo }}" is a git repo
+  stat:
+    path: "{{ item.repo }}/.git"
+  register: result
+  failed_when: result.failed
+  

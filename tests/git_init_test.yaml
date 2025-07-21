@@ -1,0 +1,16 @@
+- name: Test git_init
+  hosts: test
+  vars:
+    repo_one: /opt/repo_one
+
+  pre_tasks:
+    - name: setup dirs
+      include_tasks: tasks/empty_directory.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+  tasks:
+    - name: run git_add tests
+      include_tasks: tasks/test_init_repo.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}

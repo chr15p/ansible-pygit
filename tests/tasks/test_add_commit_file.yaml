@@ -1,0 +1,70 @@
+- name: create file {{item.filename}}  in {{ item.repo }}
+  ansible.builtin.lineinfile:
+    path: "{{ item.repo }}/{{ item.filename }}"
+    line: "bar"
+    create: true
+
+- name: add {{ item.filename }} file to repo that does not exist
+  git_add:
+    repo: "i_do_not_exist"
+    files:
+      - "{{ item.repo }}/{{ item.filename }}"
+  register: result
+  failed_when: not result.failed
+
+- name: add {{ item.filename }} file for commit
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "{{ item.repo }}/{{ item.filename }}"
+
+- name: add {{ item.filename }} file for commit again
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "{{ item.filename }}"
+  register: result
+  failed_when: result.changed or result.failed
+
+- name: add file that does not exist
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "{{ item.repo }}/i_do_not_exist"
+  register: result
+  failed_when: result.changed or result.failed
+
+- name: try to add passwd file for commit
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "/etc/passwd"
+  register: result
+  failed_when: result.changed
+
+- name: try to add passwd file for commit agin
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "../../../../../../../../../../../../etc/passwd"
+  register: result
+  failed_when: result.changed
+
+- name: commit {{ item.filename }} file to {{ item.repo }}
+  git_commit:
+    repo: "{{ item.repo }}"
+    msg: "foo bar commit"
+    author: test
+    email: test@example.com
+  register: result
+  failed_when: not result.changed or result.failed
+
+- name: commit {{ item.filename }} file to {{ item.repo }} again
+  git_commit:
+    repo: "{{ item.repo }}"
+    msg: "commit {{ item.filename }}"
+    author: test
+    email: test@example.com
+  register: result
+  failed_when: result.changed or result.failed
+

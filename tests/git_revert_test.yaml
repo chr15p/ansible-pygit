@@ -1,0 +1,42 @@
+- name: test git_add
+  hosts: test
+  tasks:
+    - name: create test_file
+      lineinfile:
+        dest: /home/chrisp/projects/test_repo/test_file
+        line: hellorld
+        state: present
+        insertafter: EOF
+        create: True
+
+    - name: git_add
+      git_add:
+        repo: /home/chrisp/projects/test_repo
+        branch: master
+        files:
+         - test_file
+         - README
+      register: result
+      failed_when: not result.changed or result.failed
+
+    - name: git_restore
+      git_restore:
+        repo: /home/chrisp/projects/test_repo
+        branch: master
+        option: workdir
+        files:
+          - test_file
+          - README
+      register: result
+      failed_when: not result.changed or result.failed
+
+    - name: git_restore
+      git_restore:
+        repo: /home/chrisp/projects/test_repo
+        branch: master
+        option: workdir
+        files:
+          - test_file
+          - README
+      register: result
+      failed_when: result.changed or result.failed

@@ -1,0 +1,61 @@
+- name: Test git_checkout
+  hosts: test
+  vars:
+    repo_one: /opt/repo_one
+    repo_two: /opt/repo_two
+    author: "ansible_git_test_user" 
+    email: "ansible_git_test_user@example.com"
+    upstream: "https://github.com/chr15p/test_repo.git"
+
+  tasks:
+  - name: setup dirs
+    include_tasks: test-pre_setup.yaml
+    with_items:
+      - "{{ repo_one }}"
+
+  - name: checkout master branch on an empty repo
+    git_checkout:
+      repo: "{{ repo_one }}"
+      branch: master
+    register: result
+    failed_when: not result.failed
+
+  - name: clone repo_one from github
+    git_clone:
+      upstream: "{{ upstream }}"
+      repo: "{{ repo_one }}"
+
+  - name: checkout master branch on a repo that exists
+    git_checkout:
+      repo: "{{ repo_one }}"
+      branch: master
+    register: result
+    failed_when: result.failed
+  
+  - name: checkout branch that does not exists
+    git_checkout:
+      repo: "{{ repo_one }}"
+      branch: non-existing
+    register: result
+    failed_when: not result.failed
+
+  - name: checkout branch that exists
+    git_checkout:
+      repo: "{{ repo_one }}"
+      branch: origin/test
+    register: result
+    failed_when: not result.changed or result.failed
+
+#  - name: checkout test branch again
+#    git_checkout:
+#      repo: "{{ repo_one }}"
+#      branch: test
+#    register: result
+#    failed_when: result.changed or result.failed
+#
+#  - name: checkout master branch again
+#    git_checkout:
+#      repo: "{{ repo_one }}"
+#      branch: master
+#    register: result
+#    failed_when: result.failed

@@ -1,0 +1,26 @@
+- name: Test git_tag
+  hosts: test
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: Tag a commit
+      git_tag:
+        repo: "{{ repo }}"
+        ref: master
+        tag: "test_tag4"
+        msg: "a test tag"
+        author: 'chrisp'
+        email: 'cprocter@redhat.com'
+      register: result
+      failed_when: result.failed
+
+    - name: Push tag
+      git_push:
+        repo: "{{ repo }}"
+        tags:
+          - test_tag2
+          - test_tag4
+        username: git
+        pubkey: /home/chrisp/.ssh/id_rsa.pub
+        privkey: /home/chrisp/.ssh/id_rsa
+      failed_when: result.failed

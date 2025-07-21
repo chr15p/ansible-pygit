@@ -1,0 +1,19 @@
+---
+- name: checkout master branch
+  git_checkout:
+    repo: "{{ item.repo }}"
+    branch: master
+    files:
+      - "{{ item.repo }}"
+  register: result
+  failed_when: result.failed
+
+
+- name: checkout master branch
+  git_checkout:
+    repo: "{{ item.repo }}"
+    branch: master
+    files:
+      - "{{ item.repo }}"
+  register: result
+  failed_when: result.failed

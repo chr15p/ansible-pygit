@@ -1,0 +1,28 @@
+---
+- name: ensure {{ item.repo }} exists
+  ansible.builtin.file:
+    name: "{{ item.repo }}"
+    state: directory
+    
+- name: Locating all files in {{ item.repo }} 
+  find:
+    path: "{{ item.repo }}/"
+    hidden: True
+  register: all_files
+  #ignore_errors: true
+
+- name: Locating all directories in {{ item.repo }} 
+  find:
+    path: "{{ item.repo }}/"
+    hidden: True
+    file_type: directory
+  register: all_dirs
+
+- name: Removing all files previously found in {{ item.repo }}
+  file:
+    path: "{{ file.path }}"
+    state: absent
+  with_items: "{{ all_files.files + all_dirs.files }}"
+  loop_control:
+    loop_var: file
+#  ignore_errors: true

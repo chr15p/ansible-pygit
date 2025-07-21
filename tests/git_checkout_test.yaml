@@ -1,0 +1,65 @@
+- name: Test git_checkout
+  hosts: test
+  vars:
+    repo_one: /opt/repo_one
+
+  pre_tasks:
+    - name: setup dirs
+      include_tasks: tasks/empty_directory.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: init repo_one
+      include_tasks: tasks/test_init_repo.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: setup a file in master and commit it
+      include_tasks: tasks/test_add_commit_file.yaml
+      loop:
+        - {repo: "{{ repo_one }}", filename: foo }
+
+  tasks:
+    - name: create test branch
+      git_branch:
+        repo: "{{ repo_one }}"
+        branch: test
+        parent: master
+      register: result
+      failed_when: result.failed
+  
+    - name: checkout master branch
+      git_checkout:
+        repo: "{{ repo_one }}"
+        branch: master
+      register: result
+      failed_when: result.failed
+
+    - name: checkout test branch
+      git_checkout:
+        repo: "{{ repo_one }}"
+        branch: test
+      register: result
+      failed_when: not result.changed or result.failed
+
+    - name: checkout test branch again
+      git_checkout:
+        repo: "{{ repo_one }}"
+        branch: test
+      register: result
+      failed_when: result.changed or result.failed
+
+    - name: checkout master branch again
+      git_checkout:
+        repo: "{{ repo_one }}"
+        branch: master
+      register: result
+      failed_when: result.failed
+
+    - name: checkout master branch third time
+      git_checkout:
+        repo: "{{ repo_one }}"
+        branch: master
+      register: result
+      failed_when: result.changed or result.failed
+ 

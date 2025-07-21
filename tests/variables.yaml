@@ -1,0 +1,3 @@
+repo: "/home/chrisp/projects/test_repo"
+author: "ansible_git_test_user" 
+email: "ansible_git_test_user@example.com"

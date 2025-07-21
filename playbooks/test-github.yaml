@@ -1,0 +1,57 @@
+---
+- name: create git repos
+  hosts: test
+  vars:
+    repo_one: /opt/repo_one
+    repo_two: /opt/repo_two
+
+  tasks:
+  - name: setup dirs
+    include_tasks: test-pre_setup.yaml
+    with_items:
+      - "{{ repo_one }}"
+      - "{{ repo_two }}"
+
+  - name: clone repo_one from github
+    git_clone:
+      upstream: https://github.com/chr15p/test_repo.git
+      repo: "{{ repo_one }}"
+
+  - name: clone repo_one to repo_two
+    git_clone:
+      upstream: "{{ repo_one }}"
+      repo: "{{ repo_two }}"
+
+  - name: create file in repo_two
+    ansible.builtin.lineinfile:
+      path: "{{ repo_two }}/hello"
+      line: "hello world"
+      create: true
+
+  - name: git add file to repo_two
+    git_add:
+      repo: "{{ repo_two }}"
+      branch: master
+      files:
+        - "{{ repo_two }}/hello"
+
+  - git_commit:
+      repo: "{{ repo_two }}"
+      msg: "test commit"
+      author: test
+      email: test@example.com
+    register: result
+
+  - git_tag:
+      repo: "{{ repo_two }}"
+      tag: test_tag
+      ref: "{{ result.commit }}"
+      msg: "create a test tag"
+      author: test
+      email: test@example.com
+
+  - git_push:
+      repo: "{{ repo_two }}"
+      tags:
+        - test_tag 
+

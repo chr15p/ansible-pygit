@@ -1,0 +1,39 @@
+- name: Test git_tag
+  hosts: test
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: Delete git_tag if it exists
+      git_tag:
+        repo: "{{ repo }}"
+        action: delete
+        tag: "test_tag2"
+
+    - name: Git_tag
+      git_tag:
+        repo: "{{ repo }}"
+        ref: master
+        tag: "test_tag2"
+        msg: "a test tag"
+        author: "{{ author }}"
+        email: "{{ email }}"
+      register: result
+      failed_when: not result.changed or result.failed
+
+    - name: Repeat git_tag
+      git_tag:
+        repo: "{{ repo }}"
+        ref: master
+        tag: "test_tag2"
+        msg: "a test tag"
+        author: "{{ author }}"
+        email: "{{ email }}"
+      register: result
+      failed_when: result.changed or result.failed
+
+    - name: Delete git_tag if it exists
+      git_tag:
+        repo: "{{ repo }}"
+        action: delete
+        tag: "test_tag2"
+      failed_when: result.failed

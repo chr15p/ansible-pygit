@@ -1,0 +1,28 @@
+---
+- name: ensure {{ item }} exists
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: directory
+    
+- name: Locating all files in {{ item }} 
+  find:
+    path: "{{ item }}/"
+    hidden: True
+  register: all_files
+  #ignore_errors: true
+
+- name: Locating all directories in {{ item }} 
+  find:
+    path: "{{ item }}/"
+    hidden: True
+    file_type: directory
+  register: all_dirs
+
+- name: Removing all files previously found in {{ item }}
+  file:
+    path: "{{ file.path }}"
+    state: absent
+  with_items: "{{ all_files.files + all_dirs.files }}"
+  loop_control:
+    loop_var: file
+#  ignore_errors: true

@@ -1,0 +1,34 @@
+---
+- name: check {{ item.repo }} is not a git repo
+  stat:
+    path: "{{ item.repo }}/.git"
+  register: result
+  failed_when: result.stat.exists
+
+- name: clone {{ item.upstream }} to {{ item.repo }}
+  git_clone:
+    upstream: "{{ item.upstream }}"
+    repo: "{{ item.repo }}"
+  register: result
+  failed_when: result.failed
+
+- name: check {{ item.repo }} is a git repo
+  stat:
+    path: "{{ item.repo }}/.git"
+  register: result
+  failed_when: result.failed
+
+- name: clone {{ item.upstream }} to {{ item.repo }} again
+  git_clone:
+    upstream: "{{ item.upstream }}"
+    repo: "{{ item.repo }}"
+  register: result
+  failed_when: result.changed
+
+- name: clone a non-existant repo to {{ item.repo }}
+  git_clone:
+    upstream: "{{ item.upstream }}_error"
+    repo: "{{ item.repo }}_error"
+  register: result
+  failed_when: not result.failed
+

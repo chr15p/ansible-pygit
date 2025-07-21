@@ -1,0 +1,26 @@
+- name: Test git_clone
+  hosts: test
+  vars:
+    upstream_repo: https://github.com/chr15p/test_repo.git
+    repo_one: /opt/repo_one
+    repo_two: /opt/repo_two
+    repo_three: /opt/repo_three
+
+  pre_tasks:
+    - name: setup dirs
+      include_tasks: tasks/empty_directory.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+        - {repo: "{{ repo_two }}"}
+
+  tasks:
+    - name: clone a remote repo
+      include_tasks: tasks/test_clone_repo.yaml
+      loop:
+        - {upstream: "{{ upstream_repo }}", repo: "{{ repo_one }}" }
+
+    - name: clone a local repo
+      include_tasks: tasks/test_clone_repo.yaml
+      loop:
+        - {upstream: "{{ repo_one }}", repo: "{{ repo_two }}" }
+

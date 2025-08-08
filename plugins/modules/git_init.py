@@ -88,9 +88,13 @@ def run_module():
     result['bare'] = bare
 
     # In check mode, we still want to detect existence to return a helpful message
-    existing_repo, git_dir = open_repository(abs_repo)
+    try:
+        existing_repo = open_repository(abs_repo)
+    except pygit2.GitError as e:
+        existing_repo = None
+
     if existing_repo is not None:
-        result['git_dir'] = git_dir
+        result['git_dir'] = existing_repo.path
         result['message'] = f"repository exists at {abs_repo}"
         result['changed'] = False
         module.exit_json(**result)
@@ -105,15 +109,11 @@ def run_module():
     try:
         pygit2.init_repository(abs_repo, bare=bare)
         # Re-open to populate git_dir consistently
-        if bare:
-            _, git_dir = open_repository(abs_repo)
-        else:
-            # For non-bare, .git will be inside the worktree
-            _, git_dir = open_repository(abs_repo)
+        existing_repo = open_repository(abs_repo)
     except pygit2.GitError as e:
         module.fail_json(msg=f"failed to create repo at {abs_repo}", exception=str(e))
 
-    result['git_dir'] = git_dir
+    result['git_dir'] = existing_repo.path
     result['message'] = f"created repository at {abs_repo}"
     result['changed'] = True
 

@@ -1,7 +1,7 @@
 - name: create files a.txt and b.txt in {{ item.repo }}
   ansible.builtin.copy:
-    dest: "{{ item.repo }}/{{ item.filename }}"
-    content: "content for {{ item.filename }}"
+    dest: "{{ item.repo }}/{{ inner.filename }}"
+    content: "content for {{ inner.filename }}"
   loop:
     - { filename: "a.txt" }
     - { filename: "b.txt" }

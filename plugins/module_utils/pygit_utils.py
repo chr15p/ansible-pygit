@@ -34,59 +34,21 @@ import pygit2
 def normalize_path(path: str) -> str:
     return os.path.abspath(os.path.expanduser(path))
 
-#def _open_if_exists(path: str):
-#    """Try to open an existing repo given a path.
-#    Returns (repo_obj, git_dir) or (None, None) if not found.
-#    """
-#    try:
-#        repo_obj = pygit2.Repository(path)
-#        return repo_obj, repo_obj.path
-#    except Exception:
-#        pass
-#
-#    try:
-#        discovered = pygit2.discover_repository(path)
-#    except Exception:
-#        discovered = None
-#
-#    if discovered:
-#        try:
-#            repo_obj = pygit2.Repository(discovered)
-#            return repo_obj, repo_obj.path
-#        except Exception:
-#            return None, None
-#
-#    return None, None
 
-def open_repository(path: str) -> tuple[pygit2.Repository, str]:
+def open_repository(path: str) -> pygit2.Repository:
     try:
-        repo_obj = pygit2.Repository(path)
-        return repo_obj, repo_obj.path
+        return pygit2.Repository(path)
     except Exception:
         pass
 
-#    try:
-#        discovered = pygit2.discover_repository(path)
-#        if discovered:
-#            return pygit2.Repository(discovered)
-#    except Exception:
-#        pass
-#
-#    raise pygit2.GitError(f"failed to get repo at {path}")
-
     try:
         discovered = pygit2.discover_repository(path)
+        if discovered:
+            return pygit2.Repository(discovered)
     except Exception:
-        discovered = None
+        pass
 
-    if discovered:
-        try:
-            repo_obj = pygit2.Repository(discovered)
-            return repo_obj, repo_obj.path
-        except Exception:
-            return None, None
-
-    return None, None
+    raise pygit2.GitError(f"failed to get repo at {path}")
 
 
 def relativize_path(repo_ref: pygit2.Repository, candidate_path: str) -> tuple[bool, str, str]:
@@ -181,6 +143,7 @@ def resolve_commit(repo, ref):
         return None
     return commit
 
+
 def resolve_reference(repo, name):
     try:
         commit, ref = repo.resolve_refish(name)
@@ -189,10 +152,11 @@ def resolve_reference(repo, name):
         return None
     return ref
 
+
 def cannonicalise_name(repo, name):
     if name is None:
         if repo.head_is_unborn:
-            name = "refs/heads/master"
+            name =  "HEAD"
         else:
             name = repo.head.name
     else:
@@ -219,25 +183,13 @@ def get_status(repo):
             output_status[filepath]="RENAMED"
         elif flags == pygit2.enums.FileStatus.INDEX_TYPECHANGE:
             output_status[filepath]="TYPECHANGE"
-
-#        elif flags == FileStatus.WT_NEW:
-#            output_status[filepath]="
-#        elif flags == FileStatus.WT_MODIFIED:
-#            output_status[filepath]="
-#        elif flags == FileStatus.WT_DELETED:
-#            output_status[filepath]="
-#        elif flags == FileStatus.WT_TYPECHANGE:
-#            output_status[filepath]="
-#        elif flags == FileStatus.WT_RENAMED:
-#            output_status[filepath]="
-#        elif flags == FileStatus.WT_UNREADABLE:
-#            output_status[filepath]="
         elif flags == pygit2.enums.FileStatus.IGNORED:
             output_status[filepath]="IGNORED"
         elif flags == pygit2.enums.FileStatus.CONFLICTED:
             output_status[filepath]="CONFLICTED"
 
     return output_status
+
 
 def get_wt_changes(repo):
     raw_status = repo.status()

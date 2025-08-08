@@ -5,10 +5,15 @@
 #from __future__ import (absolute_import, division, print_function)
 #__metaclass__ = type
 
-import os
 from ansible.module_utils.basic import AnsibleModule
 import pygit2
-from ansible.module_utils.pygit_utils import get_wt_changes, get_status, open_repository, relativize_path, normalize_path
+from ansible.module_utils.pygit_utils import (
+    get_wt_changes,
+    get_status,
+    open_repository,
+    relativize_path,
+    normalize_path
+)
 
 DOCUMENTATION = r'''
 ---
@@ -81,11 +86,13 @@ def run_module():
     repo = module.params.get('repo')
     files = module.params.get('files')
 
-    repo_ref, _ = open_repository(normalize_path(repo))
-    if repo_ref is None:
-        module.fail_json(msg=f"failed to get repo at {repo}")
+    try:
+        repo_ref = open_repository(normalize_path(repo))
+    except pygit2.GitError as e:
+        module.fail_json(msg=f"failed to get repo at {repo}", exception=str(e))
 
     index = repo_ref.index
+
     working_tree_changes = get_wt_changes(repo_ref)
 
     to_stage: list[str] = []

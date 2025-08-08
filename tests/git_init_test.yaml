@@ -1,16 +1,38 @@
 - name: Test git_init
   hosts: test
   vars:
-    repo_one: /opt/repo_one
+    repo_one: /tmp/repo_one
+    repo_two: /tmp/repo_two
 
   pre_tasks:
     - name: setup dirs
       include_tasks: tasks/empty_directory.yaml
       loop:
         - {repo: "{{ repo_one }}"}
+        - {repo: "{{ repo_two }}"}
 
   tasks:
-    - name: run git_add tests
+    - name: idempotency tests (non-bare)
+      include_tasks: tasks/test_init_idempotent.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: basic init checks
       include_tasks: tasks/test_init_repo.yaml
       loop:
         - {repo: "{{ repo_one }}"}
+
+    - name: bare repo tests
+      include_tasks: tasks/test_init_bare.yaml
+      loop:
+        - {repo: "{{ repo_two }}"}
+
+    - name: check mode tests
+      include_tasks: tasks/test_init_check_mode.yaml
+      loop:
+        - {repo: "{{ repo_two }}_check"}
+
+    - name: nested repo detection
+      include_tasks: tasks/test_init_existing_repo.yaml
+      loop:
+        - {base_repo: "{{ repo_one }}"}

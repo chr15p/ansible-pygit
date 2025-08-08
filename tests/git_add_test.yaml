@@ -1,7 +1,7 @@
 - name: Test git_add
   hosts: test
   vars:
-    repo_one: /opt/repo_one
+    repo_one: /tmp/repo_one
 
   pre_tasks:
     - name: setup dirs
@@ -19,4 +19,14 @@
       include_tasks: tasks/test_add_commit_file.yaml
       loop:
         - { filename: "foo", repo: "{{ repo_one }}" }
+
+    - name: run git_add check mode tests
+      include_tasks: tasks/test_add_check_mode.yaml
+      loop:
+        - { repo: "{{ repo_one }}" }
+
+    - name: run git_add multiple files and ignored tests
+      include_tasks: tasks/test_add_multiple_and_ignored.yaml
+      loop:
+        - { repo: "{{ repo_one }}" }
 

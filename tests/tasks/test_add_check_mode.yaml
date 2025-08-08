@@ -1,0 +1,22 @@
+- name: create file check.txt in {{ item.repo }}
+  ansible.builtin.lineinfile:
+    path: "{{ item.repo }}/check.txt"
+    line: "hello"
+    create: true
+
+- name: stage check.txt in check mode
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "check.txt"
+  check_mode: true
+  register: result
+  failed_when: result.failed or result.changed or ('would stage' not in result.message)
+
+- name: verify file not staged after check mode run
+  command: git status --porcelain
+  args:
+    chdir: "{{ item.repo }}"
+  register: status_out
+  changed_when: false
+  failed_when: false 

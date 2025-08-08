@@ -1,0 +1,11 @@
+- name: init {{ item.repo }} (first run)
+  git_init:
+    repo: "{{ item.repo }}"
+  register: result
+  failed_when: result.failed or not result.changed
+
+- name: init {{ item.repo }} (second run)
+  git_init:
+    repo: "{{ item.repo }}"
+  register: result
+  failed_when: result.failed or result.changed 

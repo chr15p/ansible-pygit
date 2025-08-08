@@ -1,0 +1,12 @@
+- name: init {{ item.repo }} in check mode
+  git_init:
+    repo: "{{ item.repo }}"
+  check_mode: true
+  register: result
+  failed_when: result.failed or result.changed
+
+- name: verify repo not created by check mode
+  stat:
+    path: "{{ item.repo }}"
+  register: stat_result
+  failed_when: stat_result.stat.exists 

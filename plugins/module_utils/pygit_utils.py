@@ -24,11 +24,88 @@
 #t = repo.revparse_single("master").tree
 #>>> for i in index.diff_to_tree(t):
 #...     print(i.delta.old_file.path)
-#... 
+#...
 ####
 #
 
+import os
 import pygit2
+
+def normalize_path(path: str) -> str:
+    return os.path.abspath(os.path.expanduser(path))
+
+#def _open_if_exists(path: str):
+#    """Try to open an existing repo given a path.
+#    Returns (repo_obj, git_dir) or (None, None) if not found.
+#    """
+#    try:
+#        repo_obj = pygit2.Repository(path)
+#        return repo_obj, repo_obj.path
+#    except Exception:
+#        pass
+#
+#    try:
+#        discovered = pygit2.discover_repository(path)
+#    except Exception:
+#        discovered = None
+#
+#    if discovered:
+#        try:
+#            repo_obj = pygit2.Repository(discovered)
+#            return repo_obj, repo_obj.path
+#        except Exception:
+#            return None, None
+#
+#    return None, None
+
+def open_repository(path: str) -> tuple[pygit2.Repository, str]:
+    try:
+        repo_obj = pygit2.Repository(path)
+        return repo_obj, repo_obj.path
+    except Exception:
+        pass
+
+#    try:
+#        discovered = pygit2.discover_repository(path)
+#        if discovered:
+#            return pygit2.Repository(discovered)
+#    except Exception:
+#        pass
+#
+#    raise pygit2.GitError(f"failed to get repo at {path}")
+
+    try:
+        discovered = pygit2.discover_repository(path)
+    except Exception:
+        discovered = None
+
+    if discovered:
+        try:
+            repo_obj = pygit2.Repository(discovered)
+            return repo_obj, repo_obj.path
+        except Exception:
+            return None, None
+
+    return None, None
+
+
+def relativize_path(repo_ref: pygit2.Repository, candidate_path: str) -> tuple[bool, str, str]:
+    """Return a tuple (is_inside_repo, abs_path, rel_path).
+    If candidate is relative, resolve against workdir first.
+    """
+    workdir = getattr(repo_ref, 'workdir', None)
+    if not workdir:
+        # For bare repos, staging files doesn't apply
+        return False, candidate_path, candidate_path
+
+    if os.path.isabs(candidate_path):
+        abs_path = normalize_path(candidate_path)
+    else:
+        abs_path = normalize_path(os.path.join(workdir, candidate_path))
+
+    is_inside = abs_path.startswith(workdir)
+    rel_path = abs_path[len(workdir):].lstrip(os.sep) if is_inside else candidate_path
+    return is_inside, abs_path, rel_path
 
 
 def changed_files(repo, branch):
@@ -50,8 +127,7 @@ def all_repo_files(repo):
     index = repo.index
     index.read()
     for entry in index:
-        #print(entry.path, entry.hex)
-        repo_files.append(i.delta.new_file.path)
+        repo_files.append(entry.path)
     return repo_files
 
 
@@ -84,10 +160,11 @@ def get_credentials(username, pubkey, privkey, passphrase):
 
     if pubkey:
         return pygit2.Keypair(username, pubkey, privkey, passphrase)
-    elif username:
+
+    if username:
         return pygit2.Username(username)
-    else:
-        return None
+
+    return None
 
 
 def branch_exists(repo, branch_name):
@@ -99,22 +176,21 @@ def branch_exists(repo, branch_name):
 def resolve_commit(repo, ref):
     try:
         commit, ref = repo.resolve_refish(ref)
-    except KeyError as e:
+    except KeyError:
         ## the ref doesn't exist
-        return None 
+        return None
     return commit
 
 def resolve_reference(repo, name):
     try:
         commit, ref = repo.resolve_refish(name)
-    except KeyError as e:
+    except KeyError:
         ## the ref doesn't exist
-        return None 
+        return None
     return ref
-    
 
 def cannonicalise_name(repo, name):
-    if name == None:
+    if name is None:
         if repo.head_is_unborn:
             name = "refs/heads/master"
         else:
@@ -122,8 +198,8 @@ def cannonicalise_name(repo, name):
     else:
         try:
             name = repo.lookup_reference_dwim(name).name
-        except KeyError as e:
-            name = f"refs/heads/{name}" 
+        except KeyError:
+            name = f"refs/heads/{name}"
 
     return name
 

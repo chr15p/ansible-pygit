@@ -2,46 +2,67 @@
 
 # Copyright: (c) 2025, Chris Procter <chris@chrisprocter.co.uk>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
+#from __future__ import (absolute_import, division, print_function)
+#__metaclass__ = type
+
+
+import pygit2
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.pygit_utils import open_repository, normalize_path
+
 
 DOCUMENTATION = r'''
 ---
 module: git_init
-short description: 
-description: 
+short_description: Initialize a new Git repository (bare or non-bare)
+description: Initialize a new Git repository at a given path. If a repository already exists, the task is idempotent and will report no change.
 options:
   repo:
-    description: Path on the filesystem to find the git repo
-    type: string
+    description: Path on the filesystem for the repository root (worktree for non-bare; repo dir for bare)
+    type: path
     required: true
   bare:
-    description: repo should be created as a bare repo
+    description: Create the repository as a bare repository
     type: boolean
     required: false
     default: false
 '''
 
 EXAMPLES = r'''
-- name: git_init
+- name: Initialize a worktree repository
   git_init:
     repo: /home/example/projects/test_repo
+
+- name: Initialize a bare repository
+  git_init:
+    repo: /srv/git/test_repo.git
+    bare: true
 '''
 
 RETURN = r'''
-None
+changed:
+  description: Whether any change was made
+  type: bool
+message:
+  description: A human-readable message
+  type: str
+repo:
+  description: The absolute path provided (normalized)
+  type: str
+bare:
+  description: Whether the repository is bare
+  type: bool
+git_dir:
+  description: Path to the Git directory (.git for non-bare, repo path for bare)
+  type: str
 '''
-
-import os
-from ansible.module_utils.basic import AnsibleModule
-import pygit2
-from ansible.module_utils.pygit_utils import *
 
 # define available arguments/parameters a user can pass to the module
 module_args = {
-    "repo": {"type": 'str', "required": True},
+    "repo": {"type": 'path', "required": True},
     "bare": {"type": "bool", "required": False, "default": False},
 }
+
 
 def run_module():
 
@@ -49,6 +70,9 @@ def run_module():
     result = {
         "changed": False,
         "message": '',
+        "repo": '',
+        "bare": False,
+        "git_dir": None,
     }
 
     module = AnsibleModule(
@@ -56,31 +80,41 @@ def run_module():
         supports_check_mode=True
     )
 
-    # if the user is working with this module in only check mode we do not
-    # want to make any changes to the environment, just return the current
-    # state with no modifications
-    if module.check_mode:
-        module.exit_json(**result)
-
     repo = module.params.get('repo')
     bare = module.params.get('bare')
 
-    #if repo[-4:] != ".git":
-    #    repo = repo +"/.git"
+    abs_repo = normalize_path(repo)
+    result['repo'] = abs_repo
+    result['bare'] = bare
 
-    if pygit2.discover_repository(repo):
-        result['message'] = f"repository exists at { repo }"
+    # In check mode, we still want to detect existence to return a helpful message
+    existing_repo, git_dir = open_repository(abs_repo)
+    if existing_repo is not None:
+        result['git_dir'] = git_dir
+        result['message'] = f"repository exists at {abs_repo}"
         result['changed'] = False
-
         module.exit_json(**result)
-    
-    try:
-        pygit2.init_repository(repo, bare=bare)
-    except pygit2.GitError as e:
-        module.fail_json(msg = f"failed to create repo at {repo}",
-                         exception = str(e))
 
-    result['message'] = f"created repository at { repo }"
+    # Not found
+    if module.check_mode:
+        result['message'] = f"would create repository at {abs_repo}"
+        result['changed'] = False
+        module.exit_json(**result)
+
+    # we're now not in check mode and the repo doesn't exist, so we can create it
+    try:
+        pygit2.init_repository(abs_repo, bare=bare)
+        # Re-open to populate git_dir consistently
+        if bare:
+            _, git_dir = open_repository(abs_repo)
+        else:
+            # For non-bare, .git will be inside the worktree
+            _, git_dir = open_repository(abs_repo)
+    except pygit2.GitError as e:
+        module.fail_json(msg=f"failed to create repo at {abs_repo}", exception=str(e))
+
+    result['git_dir'] = git_dir
+    result['message'] = f"created repository at {abs_repo}"
     result['changed'] = True
 
     module.exit_json(**result)

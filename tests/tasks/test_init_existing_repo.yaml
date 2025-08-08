@@ -1,0 +1,14 @@
+- name: ensure base repo exists
+  git_init:
+    repo: "{{ item.base_repo }}"
+
+- name: create subdirectory inside repo
+  file:
+    path: "{{ item.base_repo }}/subdir"
+    state: directory
+
+- name: attempt to init subdir (should detect parent repo and be idempotent)
+  git_init:
+    repo: "{{ item.base_repo }}/subdir"
+  register: result
+  failed_when: result.failed or result.changed 

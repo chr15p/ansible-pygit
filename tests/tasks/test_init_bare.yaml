@@ -1,0 +1,19 @@
+- name: init bare {{ item.repo }} (first run)
+  git_init:
+    repo: "{{ item.repo }}"
+    bare: true
+  register: result
+  failed_when: result.failed or not result.changed
+
+- name: init bare {{ item.repo }} (second run)
+  git_init:
+    repo: "{{ item.repo }}"
+    bare: true
+  register: result
+  failed_when: result.failed or result.changed
+
+- name: check "{{ item.repo }}" is a bare git repo
+  stat:
+    path: "{{ item.repo }}/HEAD"
+  register: result
+  failed_when: result.failed 

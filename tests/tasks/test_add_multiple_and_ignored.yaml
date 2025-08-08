@@ -1,0 +1,45 @@
+- name: create files a.txt and b.txt in {{ item.repo }}
+  ansible.builtin.copy:
+    dest: "{{ item.repo }}/{{ item.filename }}"
+    content: "content for {{ item.filename }}"
+  loop:
+    - { filename: "a.txt" }
+    - { filename: "b.txt" }
+  loop_control:
+    loop_var: inner
+
+- name: stage multiple files with some ignored
+  git_add:
+    repo: "{{ repo }}"
+    files:
+      - "a.txt"
+      - "{{ repo }}/b.txt"
+      - "/etc/hosts"
+      - "../../outside.txt"
+  register: add_result
+  vars:
+    repo: "{{ item.repo }}"
+  failed_when: add_result.failed or (not add_result.changed)
+
+- name: assert added_files contain expected files
+  ansible.builtin.assert:
+    that:
+      - "'a.txt' in add_result.added_files"
+      - "'b.txt' in add_result.added_files"
+
+- name: assert ignored_files contain outside paths
+  ansible.builtin.assert:
+    that:
+      - "'/etc/hosts' in add_result.ignored_files"
+
+- name: re-run staging to check idempotency
+  git_add:
+    repo: "{{ repo }}"
+    files:
+      - "a.txt"
+      - "{{ repo }}/b.txt"
+      - "/etc/hosts"
+  register: add_result_again
+  vars:
+    repo: "{{ item.repo }}"
+  failed_when: add_result_again.failed or add_result_again.changed 

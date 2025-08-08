@@ -2,27 +2,32 @@
 
 # Copyright: (c) 2025, Chris Procter <chris@chrisprocter.co.uk>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
+#from __future__ import (absolute_import, division, print_function)
+#__metaclass__ = type
+
+import os
+from ansible.module_utils.basic import AnsibleModule
+import pygit2
+from ansible.module_utils.pygit_utils import get_wt_changes, get_status, open_repository, relativize_path, normalize_path
 
 DOCUMENTATION = r'''
 ---
 module: git_add
-short description: add and commit one or more files
-description: add a git commit
+short_description: Stage one or more files in a Git repository
+description: Stage files that have working tree changes in a Git repository. Idempotent; unchanged files are ignored.
 options:
   repo:
-    description: Path on the filesystem to find the git repo
-    type: string
+    description: Path on the filesystem to the Git repository worktree
+    type: path
     required: true
   files:
-    description: the files to add
+    description: List of file paths to stage. Paths may be absolute (inside the worktree) or relative to the worktree.
     type: list
     required: true
 '''
 
 EXAMPLES = r'''
- - name: git_add
+ - name: Stage two files
    git_add:
      repo: /home/example/projects/test_repo
      files:
@@ -32,23 +37,30 @@ EXAMPLES = r'''
 
 RETURN = r'''
 added_files:
-  description: The list of files staged by this task
+  description: The list of files staged by this task (relative to the worktree)
   type: list
 status:
-  description: A dict with the files currently staged for commit as keys
-               and their statuses as the values
+  description: A dict with the files currently staged for commit as keys and their statuses as the values
   type: dict
+ignored_files:
+  description: Files that were ignored because they are outside the repository or had no working tree changes
+  type: list
+changed:
+  description: Whether any change was made
+  type: bool
+message:
+  description: A human-readable message
+  type: str
 '''
 
-from ansible.module_utils.basic import AnsibleModule
-import pygit2
-from ansible.module_utils.pygit_utils import *
+
 
 # define available arguments/parameters a user can pass to the module
 module_args = {
-    "repo": {"type": 'str', "required": True},
+    "repo": {"type": 'path', "required": True},
     "files": {"type": "list", "required": True},
 }
+
 
 def run_module():
 
@@ -57,7 +69,8 @@ def run_module():
         "changed": False,
         "message": '',
         "added_files": [],
-        "status": [],
+        "ignored_files": [],
+        "status": {},
     }
 
     module = AnsibleModule(
@@ -65,44 +78,57 @@ def run_module():
         supports_check_mode=True
     )
 
-    # if the user is working with this module in only check mode we do not
-    # want to make any changes to the environment, just return the current
-    # state with no modifications
-    if module.check_mode:
-        module.exit_json(**result)
-
     repo = module.params.get('repo')
     files = module.params.get('files')
 
-    try:
-        repo_ref = pygit2.Repository(repo)
-    except pygit2.GitError as e:
-        module.fail_json(msg = f"failed to get repo at {repo}",
-                         exception = str(e))
-
-    #commit = resolve_commit(repo_ref, branch)
+    repo_ref, _ = open_repository(normalize_path(repo))
+    if repo_ref is None:
+        module.fail_json(msg=f"failed to get repo at {repo}")
 
     index = repo_ref.index
+    working_tree_changes = get_wt_changes(repo_ref)
 
-    wt = get_wt_changes(repo_ref)
+    to_stage: list[str] = []
+    ignored: list[str] = []
 
-    added_files = []
+    for provided_path in files:
+        is_inside, abs_path, rel_path = relativize_path(repo_ref, provided_path)
+        if not is_inside:
+            # outside the repo; ignore
+            ignored.append(provided_path)
+            continue
+        if working_tree_changes.get(rel_path):
+            to_stage.append(rel_path)
+        else:
+            ignored.append(provided_path)
 
-    for f in files:
-        rel_file = f.removeprefix(repo_ref.workdir)
-        if wt.get(rel_file):
-            index.add(rel_file)
-            added_files.append(rel_file)
+    if module.check_mode:
+        if to_stage:
+            result['message'] = f"would stage {','.join(to_stage)} for commit"
+            result['changed'] = False
+            result['ignored_files'] = ignored
+            result['status'] = get_status(repo_ref)
+            module.exit_json(**result)
+        else:
+            result['message'] = "no new files added for commit"
+            result['ignored_files'] = ignored
+            result['status'] = get_status(repo_ref)
+            module.exit_json(**result)
 
-    index.write()
+    if to_stage:
+        for rel_path in to_stage:
+            index.add(rel_path)
+        index.write()
 
     result['status'] = get_status(repo_ref)
 
-    if not added_files:
+    if not to_stage:
         result['message'] = "no new files added for commit"
+        result['ignored_files'] = ignored
     else:
-        result['added_files'] = added_files
-        result['message'] = f"staged {','.join(added_files)} for commit"
+        result['added_files'] = to_stage
+        result['ignored_files'] = ignored
+        result['message'] = f"staged {','.join(to_stage)} for commit"
         result['changed'] = True
 
     module.exit_json(**result)

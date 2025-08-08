@@ -6,75 +6,81 @@
 DOCUMENTATION = r'''
 ---
 module: git_branch
-short description: 
-description:
+short_description: Create or delete a Git branch
+description: Adds or deletes a local Git branch by name. Idempotent and safe to run repeatedly.
 options:
   repo:
-    description: Path on the filesystem to find the git repo
-    type: string
+    description: Path on the filesystem to the Git repository worktree
+    type: path
     required: true
   action:
-    description: add or delete the branch
+    description: Whether to add or delete the branch
     type: string
     required: false
-    choices: add, delete
+    choices: [add, delete]
     default: add
   parent:
-    description: branch to fork from 
+    description: Branch or commit to branch from when creating a branch
     type: string
     required: false
     default: master
-    aliases: branch
+    aliases: [branch]
   name:
-    description: name of the branch to create or delete
+    description: Name of the branch to create or delete
     type: string
-    required: false 
+    required: true
 '''
 
 EXAMPLES = r'''
+- name: Create a branch from master
+  git_branch:
+    repo: /path/to/repo
+    action: add
+    parent: master
+    name: feature/foo
+
+- name: Delete a branch
+  git_branch:
+    repo: /path/to/repo
+    action: delete
+    name: feature/foo
 '''
 
 RETURN = r'''
-None
+changed:
+  description: Whether any change was made
+  type: bool
+message:
+  description: A human-readable message
+  type: str
 '''
 
 from ansible.module_utils.basic import AnsibleModule
 import pygit2
-from ansible.module_utils.pygit_utils import *
-
-module_args = dict(
-    repo = {"type": 'str', "required": True},
-    action = {"type": 'str', "required": False, "choices": ['add', 'delete'], "default": 'add'},
-    parent = {"type": 'str', "required": False, "default": "master"},
-    name = {"type": 'str', "required": False, "aliases": ['branch']},
+from ansible.module_utils.pygit_utils import (
+    normalize_path,
+    open_repository,
+    resolve_commit,
 )
 
-def run_module():
-    # define available arguments/parameters a user can pass to the module
-#    module_args = dict(
-#        repo = {"type": 'str', "required": True},
-#        action = {"type": 'str', "required": False, "choices": ['add', 'delete'], "default": 'add'},
-#        parent = {"type": 'str', "required": False, "aliases": ['branch']},
-#        name = {"type": 'str', "required": False},
-#    )
+module_args = {
+    "repo": {"type": 'path', "required": True},
+    "action": {"type": 'str', "required": False, "choices": ['add', 'delete'], "default": 'add'},
+    "parent": {"type": 'str', "required": False, "default": "master", "aliases": ['branch']},
+    "name": {"type": 'str', "required": True},
+}
 
+def run_module():
     # seed the result dict in the object
-    result = dict(
-        changed = False,
-        message = '',
-        tag = '',
-    )
+    result = {
+        "changed": False,
+        "message": '',
+    }
 
     module = AnsibleModule(
-        argument_spec = module_args,
-        supports_check_mode = True
+        argument_spec=module_args,
+        supports_check_mode=True
     )
-
-    # if the user is working with this module in only check mode we do not
-    # want to make any changes to the environment, just return the current
-    # state with no modifications
-    if module.check_mode:
-        module.exit_json(**result)
 
     repo = module.params.get('repo')
     action = module.params.get('action')
@@ -86,43 +92,45 @@ def run_module():
             AnsibleModule.fail_json(msg="Name is required when deleting a branch")
 
     try:
-        repo_ref = pygit2.Repository( repo)
+        repo_ref = open_repository(normalize_path(repo))
     except pygit2.GitError as e:
-        module.fail_json(msg = f"failed to get repo at {repo}",
-                         exception = str(e))
-        
+        module.fail_json(msg=f"failed to get repo at {repo}", exception=str(e))
 
-    # read index
+    # Ensure index is loaded
     repo_ref.index.read()
 
-    # or create from another branch
-    branch = repo_ref.lookup_branch(name)
+    # Check if branch exists
+    branch_obj = repo_ref.lookup_branch(name)
 
-    if action == "delete" and branch == None:
-        output_msg = f"branch { name } does not exist"
-        result['changed'] = False
-    
-    elif action == "delete" and branch != None:
-        branch.delete()
-        output_msg = f"branch { name } deleted"
+    if action == 'delete':
+        if branch_obj is None:
+            result['message'] = f"branch {name} does not exist"
+            module.exit_json(**result)
+        if module.check_mode:
+            result['message'] = f"would delete branch {name}"
+            module.exit_json(**result)
+        branch_obj.delete()
+        result['message'] = f"branch {name} deleted"
         result['changed'] = True
+        module.exit_json(**result)
 
-    elif action == "add" and branch == None:
-        parent_commit = resolve_commit(repo_ref, parent)
-        if parent_commit == None:
-            module.fail_json(msg=f"{ parent } not found in {repo}")
-            
-        #parent_branch = repo_ref.lookup_branch(parent)
-        #branch = repo_ref.create_branch(name, parent_branch.peel())
-        new_branch = repo_ref.create_branch(name, parent_commit)
-        output_msg = f"branch { name } created"
-        result['changed'] = True
+    # action == 'add'
+    if branch_obj is not None:
+        result['message'] = f"branch {name} already exists"
+        module.exit_json(**result)
 
-    elif action == "add" and branch != None:
-        output_msg = f"branch { name } already exists"
-        result['changed'] = False
+    # Resolve parent commit to branch from
+    parent_commit = resolve_commit(repo_ref, parent)
+    if parent_commit is None:
+        module.fail_json(msg=f"{parent} not found in {repo}")
 
-    result['message'] = output_msg
+    if module.check_mode:
+        result['message'] = f"would create branch {name} from {parent}"
+        module.exit_json(**result)
+
+    repo_ref.create_branch(name, parent_commit)
+    result['message'] = f"branch {name} created"
+    result['changed'] = True
 
     module.exit_json(**result)
 

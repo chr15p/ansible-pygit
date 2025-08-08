@@ -1,0 +1,24 @@
+- name: delete branch feature/test in check mode
+  git_branch:
+    repo: "{{ item.repo }}"
+    action: delete
+    name: feature/test
+  check_mode: true
+  register: del_check
+  failed_when: del_check.failed or del_check.changed
+
+- name: delete branch {{ item.branch }}
+  git_branch:
+    repo: "{{ item.repo }}"
+    action: delete
+    name: "{{ item.branch }}"
+  register: del_result
+  failed_when: del_result.failed or (not del_result.changed)
+
+- name: delete branch {{ item.branch }} again (idempotent)
+  git_branch:
+    repo: "{{ item.repo }}"
+    action: delete
+    name: "{{ item.branch }}"
+  register: del_result_again
+  failed_when: del_result_again.failed or del_result_again.changed 

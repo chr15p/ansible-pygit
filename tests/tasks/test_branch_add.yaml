@@ -1,0 +1,17 @@
+- name: create branch {{ item.branch }} from {{ item.parent }}
+  git_branch:
+    repo: "{{ item.repo }}"
+    action: add
+    parent: "{{ item.parent }}"
+    name: "{{ item.branch }}"
+  register: add_result
+  failed_when: add_result.failed or (not add_result.changed)
+
+- name: create branch feature/test again (idempotent)
+  git_branch:
+    repo: "{{ item.repo }}"
+    action: add
+    parent: "{{ item.parent }}"
+    name: "{{ item.branch }}"
+  register: add_result_again
+  failed_when: add_result_again.failed or add_result_again.changed

@@ -1,7 +1,7 @@
 - name: Test git_branch
   hosts: test
   vars:
-    repo_one: /opt/repo_one
+    repo_one: /tmp/repo_one
 
   pre_tasks:
     - name: setup dirs
@@ -14,9 +14,29 @@
       loop:
         - {repo: "{{ repo_one }}"}
 
+    - name: create a file to commit on base branch in {{ repo_one }}
+      ansible.builtin.copy:
+        dest: "{{ repo_one }}/base.txt"
+        content: "base"
+
+    - name: stage and commit base file
+      block:
+        - git_add:
+            repo: "{{ repo_one }}"
+            files:
+              - "base.txt"
+        - git_commit:
+            repo: "{{ repo_one }}"
+            msg: "base commit"
+
   tasks:
-    - name: run git_branch tests
-      include_tasks: tasks/test_branch.yaml
+    - name: run git_branch add tests
+      include_tasks: tasks/test_branch_add.yaml
       loop:
-        - {repo: "{{ repo_one }}", filename: foo }
+        - {repo: "{{ repo_one }}", parent: "main", branch: "feature/test"}
+
+    - name: run git_branch delete tests
+      include_tasks: tasks/test_branch_delete.yaml
+      loop:
+        - {repo: "{{ repo_one }}", branch: "feature/test"}
 

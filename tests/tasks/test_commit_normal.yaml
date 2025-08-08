@@ -1,0 +1,24 @@
+- name: create a file to stage in {{ item.repo }}
+  ansible.builtin.copy:
+    dest: "{{ item.repo }}/normal_commit.txt"
+    content: "hello normal"
+
+- name: stage file for commit
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "normal_commit.txt"
+
+- name: make a commit
+  git_commit:
+    repo: "{{ item.repo }}"
+    msg: "normal commit"
+  register: commit_result
+  failed_when: commit_result.failed or (not commit_result.changed) or (commit_result.commit is not defined) or (commit_result.commit | length == 0)
+
+- name: make a commit again (idempotent - nothing new staged)
+  git_commit:
+    repo: "{{ item.repo }}"
+    msg: "normal commit again"
+  register: commit_result_again
+  failed_when: commit_result_again.failed or commit_result_again.changed 

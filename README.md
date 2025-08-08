@@ -1,2 +1,6 @@
 # ansible-pygit
-module for using git  from ansible
+Module for using git from ansible
+
+# License
+MIT / BSD
+

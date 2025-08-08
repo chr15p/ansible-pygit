@@ -1,0 +1,18 @@
+- name: create a file to stage in {{ item.repo }}
+  ansible.builtin.copy:
+    dest: "{{ item.repo }}/check_commit.txt"
+    content: "hello"
+
+- name: stage file for commit
+  git_add:
+    repo: "{{ item.repo }}"
+    files:
+      - "check_commit.txt"
+
+- name: run commit in check mode
+  git_commit:
+    repo: "{{ item.repo }}"
+    msg: "check mode commit"
+  check_mode: true
+  register: commit_result
+  failed_when: commit_result.failed or commit_result.changed or ('would create commit' not in commit_result.message) 

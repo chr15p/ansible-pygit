@@ -1,0 +1,31 @@
+- name: Test git_commit
+  hosts: test
+  vars:
+    repo_one: /tmp/repo_one
+
+  pre_tasks:
+    - name: setup dirs
+      include_tasks: tasks/empty_directory.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: init repo_one
+      include_tasks: tasks/test_init_repo.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+  tasks:
+    - name: commit with no staged changes
+      include_tasks: tasks/test_commit_no_changes.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: commit in check mode
+      include_tasks: tasks/test_commit_check_mode.yaml
+      loop:
+        - {repo: "{{ repo_one }}"}
+
+    - name: normal commit and idempotency
+      include_tasks: tasks/test_commit_normal.yaml
+      loop:
+        - {repo: "{{ repo_one }}"} 

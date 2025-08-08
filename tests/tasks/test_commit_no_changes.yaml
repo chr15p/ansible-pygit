@@ -1,0 +1,5 @@
+- name: commit with no staged changes in {{ item.repo }}
+  git_commit:
+    repo: "{{ item.repo }}"
+  register: commit_result
+  failed_when: commit_result.failed or commit_result.changed 

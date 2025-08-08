@@ -1,4 +1,6 @@
-#
+# Copyright: (c) 2025, Chris Procter <chris@chrisprocter.co.uk>
+# MIT License (see LICENSE)
+
 #### list files that have changed from HEAD (staged and unstaged)
 #>>> t = repo.revparse_single("master").tree
 #>>> for i in repo.diff(t):
